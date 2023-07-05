@@ -1,0 +1,6 @@
+locals {
+  default_env = {
+    NUXT_PUBLIC_TRUSTUP_APP_KEY=var.TRUSTUP_APP_KEY
+    NUXT_PUBLIC_APP_NAME=var.TRUSTUP_APP_KEY
+  }
+}
