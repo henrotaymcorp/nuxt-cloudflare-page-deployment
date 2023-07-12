@@ -28,10 +28,26 @@ resource "cloudflare_pages_project" "app" {
   }
   deployment_configs {
     preview {
-      secrets = merge({ NODE_VERSION: data.doppler_secrets.ci_commons.map.CLOUDFLARE_DEPLOYMENT_NODE_VERSION }, data.doppler_secrets.app_staging.map, data.doppler_secrets.app_commons_staging.map)
+      secrets = merge(
+        { 
+          NODE_VERSION: data.doppler_secrets.ci_commons.map.CLOUDFLARE_DEPLOYMENT_NODE_VERSION,
+          YARN_VERSION: data.doppler_secrets.ci_commons.map.CLOUDFLARE_DEPLOYMENT_YARN_VERSION 
+        },
+        data.doppler_secrets.app_commons_staging.map,
+        data.doppler_secrets.app_staging.map
+      )
+      placement {}
     }
     production {
-      secrets = merge({ NODE_VERSION: data.doppler_secrets.ci_commons.map.CLOUDFLARE_DEPLOYMENT_NODE_VERSION }, data.doppler_secrets.app_production.map, data.doppler_secrets.app_commons_production.map)
+      secrets = merge(
+        {
+          NODE_VERSION: data.doppler_secrets.ci_commons.map.CLOUDFLARE_DEPLOYMENT_NODE_VERSION,
+          YARN_VERSION: data.doppler_secrets.ci_commons.map.CLOUDFLARE_DEPLOYMENT_YARN_VERSION
+        },
+        data.doppler_secrets.app_commons_production.map,
+        data.doppler_secrets.app_production.map
+      )
+      placement {}
     }
   }
 }
