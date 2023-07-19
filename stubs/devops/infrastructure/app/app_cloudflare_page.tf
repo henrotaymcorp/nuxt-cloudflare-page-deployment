@@ -36,7 +36,6 @@ resource "cloudflare_pages_project" "app" {
         data.doppler_secrets.app_commons_staging.map,
         data.doppler_secrets.app_staging.map
       )
-      placement {}
     }
     production {
       secrets = merge(
@@ -47,7 +46,6 @@ resource "cloudflare_pages_project" "app" {
         data.doppler_secrets.app_commons_production.map,
         data.doppler_secrets.app_production.map
       )
-      placement {}
     }
   }
 }
