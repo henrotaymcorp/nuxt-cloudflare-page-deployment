@@ -42,6 +42,7 @@ jobs:
     env:
       TF_VAR_DOPPLER_ACCESS_TOKEN_USER: "${{ secrets.DOPPLER_ACCESS_TOKEN_USER }}"
       TF_VAR_TRUSTUP_APP_KEY: "${{ needs.prepare_variables.outputs.TRUSTUP_APP_KEY }}"
+      TF_VAR_APP_ENVIRONMENT: "${{ needs.prepare_variables.outputs.APP_ENVIRONMENT }}"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
