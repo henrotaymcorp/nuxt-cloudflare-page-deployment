@@ -1,5 +1,12 @@
 # @henrotaymcorp/nuxt-cloudflare-page-deployment
 
+## 0.0.3
+
+### Patch Changes
+
+- 5ec91b9: Adding app_env environment variable to doppler secrets.
+- 9e8f341: Removing placement since it destroys deployment process.
+
 ## 0.0.2
 
 ### Patch Changes
