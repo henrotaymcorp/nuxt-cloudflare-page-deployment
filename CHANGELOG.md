@@ -1,5 +1,15 @@
 # @henrotaymcorp/nuxt-cloudflare-page-deployment
 
+## 0.1.0
+
+### Minor Changes
+
+- 9ce12ca: Adding a staging dedicated url.
+
+### Patch Changes
+
+- 106ee1c: Missing staging branch as deployable branch in github action.
+
 ## 0.0.3
 
 ### Patch Changes
