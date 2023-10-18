@@ -32,6 +32,38 @@ jobs:
       APP_ENVIRONMENT: ${{ steps.terraform_variables.outputs.app_environment }}
       CLOUDFLARE_ZONE_SECRET: ${{ steps.terraform_variables.outputs.cloudflare_zone_secret }}
 
+  slack_users:
+    name: "Retrieve slack user"
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Retrieve slack users
+        id: slack-users
+        uses: deegitalbe/github-action-trustup-io-slack-users@v1
+        with:
+          username: ${{ github.triggering_actor }}
+    outputs:
+      user_mention: "${{ steps.slack-users.outputs.user_mention }}"
+
+  notify_in_progress:
+    name: "Notify start"
+    runs-on: ubuntu-latest
+    needs:
+      - prepare_variables
+      - slack_users
+    steps:
+      -
+        name: Slack Notification
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_USERNAME: TrustUp.IO
+          SLACK_ICON: "https://avatars.slack-edge.com/2022-11-24/4423352230964_495f6791123bff9ca3ef_512.png"
+          SLACK_TITLE: "${{ needs.prepare_variables.outputs.TRUSTUP_APP_KEY }} (${{ needs.prepare_variables.outputs.APP_ENVIRONMENT }})"
+          SLACK_MESSAGE: ":construction: Deployment in progress\n${{ needs.slack_users.outputs.user_mention }}\n${{ github.event.head_commit.message }}"
+          SLACK_COLOR: "#F7BE0B"
+          SLACK_FOOTER: "Powered by automated github action"
+          SLACK_WEBHOOK: ${{ secrets.SLACK_DEPLOY_WEBHOOK_URL }}
+
   deploy_doppler_config:
     name: "Deploy main config"
     runs-on: ubuntu-latest
@@ -45,18 +77,24 @@ jobs:
       TF_VAR_TRUSTUP_APP_KEY: "${{ needs.prepare_variables.outputs.TRUSTUP_APP_KEY }}"
       TF_VAR_APP_ENVIRONMENT: "${{ needs.prepare_variables.outputs.APP_ENVIRONMENT }}"
     steps:
-      - name: Checkout repository
+      - 
+        name: Checkout repository
         uses: actions/checkout@v3
-      - name: Install Terraform
+      -
+        name: Install Terraform
         uses: hashicorp/setup-terraform@v2
-      - name: Terraform init
+        with:
+          terraform_version: ~1.5.7
+      -
+        name: Terraform init
         run: |
           terraform init \
             -backend-config="access_key=${{ secrets.DIGITALOCEAN_SPACES_ACCESS_KEY_ID }}" \
             -backend-config="secret_key=${{ secrets.DIGITALOCEAN_SPACES_SECRET_ACCESS_KEY }}" \
             -backend-config="bucket=${{ secrets.DIGITALOCEAN_SPACES_TERRAFORM_STATES_BUCKET }}" \
             -backend-config="key=${{ needs.prepare_variables.outputs.TRUSTUP_APP_KEY }}-environments-main.tfstate"
-      - name: Terraform apply
+      -
+        name: Terraform apply
         run: terraform apply -auto-approve
 
   deploy_cloudflare_config:
@@ -76,16 +114,105 @@ jobs:
       TF_VAR_APP_ENVIRONMENT: "${{ needs.prepare_variables.outputs.APP_ENVIRONMENT }}"
       TF_VAR_CLOUDFLARE_ZONE_SECRET: "${{ needs.prepare_variables.outputs.CLOUDFLARE_ZONE_SECRET }}"
     steps:
-      - name: Checkout repository
+      - 
+        name: Checkout repository
         uses: actions/checkout@v3
-      - name: Install Terraform
+      - 
+        name: Install Terraform
         uses: hashicorp/setup-terraform@v2
-      - name: Terraform init
+        with:
+          terraform_version: ~1.5.7
+      - 
+        name: Terraform init
         run: |
           terraform init \
             -backend-config="access_key=${{ secrets.DIGITALOCEAN_SPACES_ACCESS_KEY_ID }}" \
             -backend-config="secret_key=${{ secrets.DIGITALOCEAN_SPACES_SECRET_ACCESS_KEY }}" \
             -backend-config="bucket=${{ secrets.DIGITALOCEAN_SPACES_TERRAFORM_STATES_BUCKET }}" \
             -backend-config="key=${{ needs.prepare_variables.outputs.TRUSTUP_APP_KEY }}-app.tfstate"
-      - name: Terraform apply
+      - 
+        name: Terraform apply
         run: terraform apply -auto-approve
+
+  deploy_cloudflare_page:
+    name: "Deploy Cloudflare page"
+    runs-on: ubuntu-latest
+    needs:
+      - prepare_variables
+      - deploy_cloudflare_config
+    steps:
+      - 
+        name: Checkout repository
+        uses: actions/checkout@v3
+      - 
+        name: Wait for cloudflare pages deployment
+        id: cloudflare-deployment
+        uses: WalshyDev/cf-pages-await@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_PAGES_DEPLOYMENT_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          project: ${{ needs.prepare_variables.outputs.TRUSTUP_APP_KEY }}
+          commitHash: ${{ github.sha }}
+    outputs:
+      application_url: ${{ steps.cloudflare-deployment.outputs.url }}
+
+  notify_failure:
+    name: "Notify failure"
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    needs:
+      - prepare_variables
+      - slack_users
+      - deploy_cloudflare_page
+    steps:
+      -
+        name: Slack Notification
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_USERNAME: TrustUp.IO
+          SLACK_ICON: "https://avatars.slack-edge.com/2022-11-24/4423352230964_495f6791123bff9ca3ef_512.png"
+          SLACK_TITLE: "${{ needs.prepare_variables.outputs.TRUSTUP_APP_KEY }} (${{ needs.prepare_variables.outputs.APP_ENVIRONMENT }})"
+          SLACK_MESSAGE: ":rotating_light: Deployment failed\nAdversity leads to greatness :male_mage:\n${{ needs.slack_users.outputs.user_mention }}\n${{ github.event.head_commit.message }}"
+          SLACK_COLOR: "#F8312F"
+          SLACK_FOOTER: "Powered by automated github action"
+          SLACK_WEBHOOK: ${{ secrets.SLACK_DEPLOY_WEBHOOK_URL }}
+
+  notify_cancellation:
+    name: "Notify cancellation"
+    if: ${{ cancelled() }}
+    runs-on: ubuntu-latest
+    needs:
+      - prepare_variables
+      - slack_users
+      - deploy_cloudflare_page
+    steps:
+      -
+        name: Slack Notification
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_USERNAME: TrustUp.IO
+          SLACK_ICON: "https://avatars.slack-edge.com/2022-11-24/4423352230964_495f6791123bff9ca3ef_512.png"
+          SLACK_TITLE: "${{ needs.prepare_variables.outputs.TRUSTUP_APP_KEY }} (${{ needs.prepare_variables.outputs.APP_ENVIRONMENT }})"
+          SLACK_MESSAGE: ":man-gesturing-no: Deployment cancelled\n${{ needs.slack_users.outputs.user_mention }}\n${{ github.event.head_commit.message }}"
+          SLACK_COLOR: "#d1d5db"
+          SLACK_FOOTER: "Powered by automated github action"
+          SLACK_WEBHOOK: ${{ secrets.SLACK_DEPLOY_WEBHOOK_URL }}
+
+  notify_success:
+    name: "Notify success"
+    runs-on: ubuntu-latest
+    needs:
+      - prepare_variables
+      - slack_users
+      - deploy_cloudflare_page
+    steps:
+      -
+        name: Slack Notification
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_USERNAME: TrustUp.IO
+          SLACK_ICON: "https://avatars.slack-edge.com/2022-11-24/4423352230964_495f6791123bff9ca3ef_512.png"
+          SLACK_TITLE: "${{ needs.prepare_variables.outputs.TRUSTUP_APP_KEY }} (${{ needs.prepare_variables.outputs.APP_ENVIRONMENT }})"
+          SLACK_MESSAGE: ":rocket: Deployment succeeded\n${{ needs.slack_users.outputs.user_mention }}\n${{ github.event.head_commit.message }}\n<${{ needs.deploy_cloudflare_page.outputs.application_url }}|See application>"
+          SLACK_FOOTER: "Powered by automated github action"
+          SLACK_WEBHOOK: ${{ secrets.SLACK_DEPLOY_WEBHOOK_URL }}

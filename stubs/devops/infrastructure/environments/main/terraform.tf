@@ -11,4 +11,5 @@ terraform {
     skip_metadata_api_check     = true
     skip_region_validation      = true
   }
+  required_version = "~> 1.5.7"
 }
