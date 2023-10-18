@@ -1,5 +1,11 @@
 # @henrotaymcorp/nuxt-cloudflare-page-deployment
 
+## 0.2.0
+
+### Minor Changes
+
+- 0b6bf68: Adding slack notifications about deployment.
+
 ## 0.1.0
 
 ### Minor Changes
